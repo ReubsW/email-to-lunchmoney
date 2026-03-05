@@ -124,6 +124,32 @@ Some emails I would like to add
    - Splitting transactions
    - Adding notes to transactions
 
+## Future Work
+
+### Flexible Matching Strategies
+
+Currently, processors use exact amount matching to find corresponding transactions in Lunch Money. This works well when the receipt amount matches the transaction amount exactly (e.g., USD transactions in USD accounts).
+
+However, this approach fails for:
+
+- **Foreign currency transactions**: A Booking.com receipt in CAD/EUR/JPY won't match USD transactions in Lunch Money
+- **Currency conversion fees**: The final transaction amount may differ slightly from the receipt due to exchange rates and fees
+- **Dynamic exchange rates**: Exchange rates change between booking and charging
+
+**Proposed solution**: Implement flexible matching strategies per processor that can:
+
+- Accept an approximate amount range (e.g., ±5% for currency conversions)
+- Use currency conversion APIs to estimate expected amounts
+- Match based on date proximity + payee when exact amounts aren't available
+- Allow processors to specify their matching confidence level
+
+This would enable processors like `booking` to handle international receipts by:
+
+1. Detecting non-USD currency in receipt (CAD $756.16)
+2. Converting to approximate USD range using current rates (~$540-560 USD)
+3. Matching transactions within that range + date proximity
+4. Attaching receipt details even when exact amounts don't match
+
 ## Secrets
 
 - `INGEST_TOKEN` - Authentication token for the /ingest endpoint (generate a secure random token)
