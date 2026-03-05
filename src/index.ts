@@ -9,6 +9,7 @@ import PostalMime, {Email} from 'postal-mime';
 
 import {amazonProcessor} from 'src/processors/amazon';
 import {appleEmailProcessor} from 'src/processors/apple';
+import {bookingProcessor} from 'src/processors/booking';
 import {cloudflareProcessor} from 'src/processors/cloudflare';
 import {lyftBikeProcessor} from 'src/processors/lyft-bike';
 import {lyftRideProcessor} from 'src/processors/lyft-ride';
@@ -22,6 +23,7 @@ import {EmailProcessor, LunchMoneyAction} from './types';
 
 let EMAIL_PROCESSORS: EmailProcessor[] = [
   amazonProcessor,
+  bookingProcessor,
   lyftBikeProcessor,
   lyftRideProcessor,
   appleEmailProcessor,

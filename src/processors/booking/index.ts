@@ -1,0 +1,89 @@
+import {parse, format} from 'date-fns';
+import {Email} from 'postal-mime';
+
+import {EmailProcessor, LunchMoneyMatch, LunchMoneyUpdate} from 'src/types';
+
+/**
+ * Matches the property name between "Property name" label and "Property address" label.
+ */
+const RECEIPT_PROPERTY_REGEX = /Property name\s+([\s\S]+?)\s+Property address\b/;
+
+/**
+ * Matches the check-in date with optional day-of-week.
+ * Example: "Check-in Sunday, March 2, 2025"
+ */
+const RECEIPT_CHECKIN_REGEX = /Check-in\s+(?:\w+,\s+)?(\w+\s+\d{1,2},\s+\d{4})/;
+
+/**
+ * Matches the check-out date with optional day-of-week.
+ * Example: "Check-out Saturday, March 8, 2025"
+ */
+const RECEIPT_CHECKOUT_REGEX = /Check-out\s+(?:\w+,\s+)?(\w+\s+\d{1,2},\s+\d{4})/;
+
+/**
+ * Matches the amount paid in USD format.
+ * Example: "Amount paid on Feb 20, 2025\n   US$1,180.38"
+ */
+const RECEIPT_AMOUNT_REGEX = /Amount paid on .+?\s+US\$\s*([\d,]+\.?\d*)/;
+
+function process(email: Email) {
+  const emailText = email.text!;
+
+  const propertyMatch = emailText.match(RECEIPT_PROPERTY_REGEX);
+  const checkInMatch = emailText.match(RECEIPT_CHECKIN_REGEX);
+  const checkOutMatch = emailText.match(RECEIPT_CHECKOUT_REGEX);
+  const amountMatch = emailText.match(RECEIPT_AMOUNT_REGEX);
+
+  // Only process USD receipts - ignore other currencies
+  if (!amountMatch) {
+    return Promise.resolve(null);
+  }
+
+  if (!propertyMatch) {
+    throw new Error('Failed to match property name from Booking.com receipt');
+  }
+  if (!checkInMatch || !checkOutMatch) {
+    throw new Error(
+      'Failed to match check-in / check-out dates from Booking.com receipt'
+    );
+  }
+
+  const property = propertyMatch[1].trim();
+
+  const checkInDate = parse(checkInMatch[1], 'MMMM d, yyyy', new Date());
+  const checkOutDate = parse(checkOutMatch[1], 'MMMM d, yyyy', new Date());
+  const checkInFmt = format(checkInDate, 'MMM d');
+  const checkOutFmt = format(checkOutDate, 'MMM d');
+
+  // Calculate number of nights
+  const nights = Math.round(
+    (checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  const totalCents = Math.round(parseFloat(amountMatch[1].replace(/,/g, '')) * 100);
+
+  const note = `${property} — ${checkInFmt}–${checkOutFmt} (${nights} night${nights !== 1 ? 's' : ''})`;
+
+  const match: LunchMoneyMatch = {
+    expectedPayee: 'Booking.com',
+    expectedTotal: totalCents,
+  };
+
+  const updateAction: LunchMoneyUpdate = {type: 'update', match, note};
+
+  return Promise.resolve(updateAction);
+}
+
+function matchEmail(email: Email) {
+  const {from, subject} = email;
+  const isBookingCom = !!from?.address?.endsWith('@booking.com');
+  const isReceipt = subject === 'This is your receipt';
+
+  return isBookingCom && isReceipt;
+}
+
+export const bookingProcessor: EmailProcessor = {
+  identifier: 'booking',
+  matchEmail,
+  process,
+};

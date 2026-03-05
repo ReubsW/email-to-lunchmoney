@@ -50,6 +50,10 @@ Support for the following emails is currently implemented
   Money transactions split into a single transaction for each item. A note is
   added to transactions with a shortened item name and order number.
 
+- **Booking.com receipts** (USD only). Adds property name, check-in/check-out dates,
+  and number of nights as a note to Booking.com transactions. Currently only
+  processes USD receipts.
+
 - **Cloudflare invoices**. Extracts invoice details from PDF invoice
   attachments. Domain renewals and other services are added as transaction
   notes with invoice IDs.
