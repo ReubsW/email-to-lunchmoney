@@ -57,8 +57,8 @@ Before starting, ensure you have:
 - Basic familiarity with command line tools and git
 
 **Optional:**
-- A Telegram bot (for notifications about old unprocessed actions)
 
+- A Telegram bot (for notifications about old unprocessed actions)
 
 ## 1. Gmail Label Setup
 
@@ -82,10 +82,81 @@ The first step is to configure Gmail to automatically apply a label to receipt e
 
 Now you'll create filters to automatically apply this label to specific receipt emails. The service currently supports:
 
+- **Airlines** - United, Delta, Alaska, American, Southwest
 - **Amazon** - Order confirmations
 - **Lyft** - Ride and bike rental receipts
 - **Apple** - App Store and iTunes receipts
 - **Cloudflare** - Invoices (with PDF attachments)
+
+<details>
+<summary><strong>United Airlines Filter</strong></summary>
+
+1. In Gmail, click the search box at the top
+2. Click the filter icon (or use the dropdown to select "Show search options")
+3. Configure the filter:
+   - **From:** `united.com`
+   - **Subject:** `eTicket Itinerary and Receipt for Confirmation`
+4. Click **"Create filter"**
+5. Check **"Apply the label"** and select `Fwd / Lunch Money`
+6. Click **"Create filter"**
+
+</details>
+
+<details>
+<summary><strong>Delta Air Lines Filter</strong></summary>
+
+1. In Gmail, click the search box at the top
+2. Click the filter icon (or use the dropdown to select "Show search options")
+3. Configure the filter:
+   - **From:** `delta.com`
+   - **Subject:** `Your Flight Receipt`
+4. Click **"Create filter"**
+5. Check **"Apply the label"** and select `Fwd / Lunch Money`
+6. Click **"Create filter"**
+
+</details>
+
+<details>
+<summary><strong>Alaska Airlines Filter</strong></summary>
+
+1. In Gmail, click the search box at the top
+2. Click the filter icon (or use the dropdown to select "Show search options")
+3. Configure the filter:
+   - **From:** `alaskaair.com`
+   - **Subject:** `your confirmation receipt`
+4. Click **"Create filter"**
+5. Check **"Apply the label"** and select `Fwd / Lunch Money`
+6. Click **"Create filter"**
+
+</details>
+
+<details>
+<summary><strong>American Airlines Filter</strong></summary>
+
+1. In Gmail, click the search box at the top
+2. Click the filter icon (or use the dropdown to select "Show search options")
+3. Configure the filter:
+   - **From:** `aa.com`
+   - **Subject:** `Your trip confirmation`
+4. Click **"Create filter"**
+5. Check **"Apply the label"** and select `Fwd / Lunch Money`
+6. Click **"Create filter"**
+
+</details>
+
+<details>
+<summary><strong>Southwest Airlines Filter</strong></summary>
+
+1. In Gmail, click the search box at the top
+2. Click the filter icon (or use the dropdown to select "Show search options")
+3. Configure the filter:
+   - **From:** `southwest.com`
+   - **Has the words:** `"You're going to" OR "Flight reservation"`
+4. Click **"Create filter"**
+5. Check **"Apply the label"** and select `Fwd / Lunch Money`
+6. Click **"Create filter"**
+
+</details>
 
 <details>
 <summary><strong>Amazon Filter</strong></summary>
@@ -158,7 +229,6 @@ Now you'll create filters to automatically apply this label to specific receipt 
 
 </details>
 
-
 ## 2. Google Apps Script Deployment
 
 The Apps Script monitors emails with the `Fwd / Lunch Money` label and POSTs them to the Cloudflare Worker endpoint.
@@ -180,17 +250,20 @@ This will open a browser window to authenticate with your Google account. Grant 
 ### 2.3 Clone and Configure the Script
 
 1. Clone this repository (if you haven't already):
+
    ```bash
    git clone https://github.com/evanpurkhiser/email-to-lunchmoney.git
    cd email-to-lunchmoney
    ```
 
 2. Navigate to the Apps Script directory:
+
    ```bash
    cd google-app-script
    ```
 
 3. Create a new Apps Script project:
+
    ```bash
    clasp create --type standalone --title "Email to Lunch Money Forwarder"
    ```
@@ -198,6 +271,7 @@ This will open a browser window to authenticate with your Google account. Grant 
    This will create a `.clasp.json` file with your script ID.
 
 4. Edit `.clasp.json` to add TypeScript support by adding `".ts"` to the `scriptExtensions` array:
+
    ```json
    {
      "scriptId": "...",
@@ -208,6 +282,7 @@ This will open a browser window to authenticate with your Google account. Grant 
    ```
 
 5. Deploy the script:
+
    ```bash
    clasp push
    ```
@@ -215,7 +290,6 @@ This will open a browser window to authenticate with your Google account. Grant 
    This uploads the script to Google Apps Script.
 
    **Note:** We'll configure the script properties and trigger in Step 5, after deploying the Cloudflare Worker.
-
 
 ## 3. Cloudflare Workers Deployment
 
@@ -258,15 +332,16 @@ Open `wrangler.jsonc` and update the placeholder values:
    ```
 
 The `wrangler.jsonc` should have the database configuration like:
+
 ```jsonc
 {
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "email-to-lunchmoney",
-      "database_id": "your-actual-database-id-here"
-    }
-  ]
+      "database_id": "your-actual-database-id-here",
+    },
+  ],
 }
 ```
 
@@ -285,19 +360,20 @@ wrangler deploy
 ```
 
 This will:
+
 - Bundle your TypeScript code
 - Upload it to Cloudflare Workers
 - Configure the scheduled trigger (every 30 minutes)
 - Set up the HTTP /ingest endpoint
 
 You should see output indicating successful deployment:
+
 ```
 Published email-to-lunchmoney (X.XX sec)
   https://email-to-lunchmoney.your-subdomain.workers.dev
 ```
 
 **Important:** Copy this Worker URL - you'll need it to configure the `INGEST_URL` in your Apps Script properties (in Step 4.1).
-
 
 ## 4. Service Configuration
 
@@ -318,9 +394,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 This will output a secure random token (e.g., `696b1b2b7fdd1dee2c425cd331740d9f...`). Copy this token.
 
 Set it as a Cloudflare secret:
+
 ```bash
 wrangler secret put INGEST_TOKEN
 ```
+
 Paste your token when prompted.
 
 **Important:** Save this token - you'll need it to configure your Apps Script in Step 5.
@@ -381,6 +459,7 @@ If you want to enable Telegram notifications:
    ```
 
 **What notifications will I receive?**
+
 - Alerts when actions are older than 15 days and haven't been matched to transactions
 - This helps you identify receipt emails that couldn't be automatically processed
 
@@ -405,7 +484,6 @@ Additional configuration is available in the source code:
 - **Cleanup Threshold** (`src/old-action-cleanup.ts`): Currently 30 days. Notified actions older than this are deleted.
 - **Scheduled Frequency** (`wrangler.jsonc`): Currently every 30 minutes (`*/30 * * * *`)
 
-
 ## 5. Configure Apps Script
 
 Now that the worker is deployed and configured, let's configure the Apps Script to connect to it.
@@ -413,6 +491,7 @@ Now that the worker is deployed and configured, let's configure the Apps Script 
 ### 5.1 Configure Script Properties
 
 1. Open your Apps Script project:
+
    ```bash
    cd google-app-script
    clasp open-script
@@ -426,11 +505,11 @@ Now that the worker is deployed and configured, let's configure the Apps Script 
 
 4. Add the following properties:
 
-   | Property Name | Value | Description |
-   |--------------|-------|-------------|
-   | `GMAIL_LABEL` | `Fwd / Lunch Money` | The Gmail label to monitor |
-   | `INGEST_URL` | `https://email-to-lunchmoney.your-subdomain.workers.dev/ingest` | Your Worker endpoint URL from Step 3 |
-   | `INGEST_TOKEN` | _(your token from Step 4.1)_ | Authentication token for the Worker |
+   | Property Name  | Value                                                           | Description                          |
+   | -------------- | --------------------------------------------------------------- | ------------------------------------ |
+   | `GMAIL_LABEL`  | `Fwd / Lunch Money`                                             | The Gmail label to monitor           |
+   | `INGEST_URL`   | `https://email-to-lunchmoney.your-subdomain.workers.dev/ingest` | Your Worker endpoint URL from Step 3 |
+   | `INGEST_TOKEN` | _(your token from Step 4.1)_                                    | Authentication token for the Worker  |
 
    **Note:** For `INGEST_URL`, use the Worker URL from Step 3.6. For `INGEST_TOKEN`, use the token you generated and saved in Step 4.1.
 
@@ -461,7 +540,6 @@ The script needs to run periodically to check for new labeled emails.
 
    This is normal for personal Apps Script projects. The script needs permission to read your Gmail messages and make HTTP requests.
 
-
 ## 6. Testing and Verification
 
 ### 6.1 Test the Apps Script
@@ -479,6 +557,7 @@ You can test the script manually before waiting for the automatic trigger.
 3. Click **Run** (play button)
 
 4. Check the **Execution log** at the bottom to verify it ran without errors. You should see output similar to:
+
    ```
    Notice    Execution started
    Info      Found 1 emails to process...
@@ -505,11 +584,13 @@ wrangler tail
 ```
 
 Or view logs in the Cloudflare dashboard:
+
 1. Go to **Workers & Pages**
 2. Select `email-to-lunchmoney`
 3. Click **Logs** tab
 
 You should see log entries indicating:
+
 - Email received
 - Email parsed
 - Processor matched (e.g., "Amazon", "Lyft")
@@ -524,6 +605,7 @@ wrangler d1 execute email-to-lunchmoney --command "SELECT * FROM lunchmoney_acti
 ```
 
 You should see entries with:
+
 - `id`: Auto-incrementing ID
 - `date_created`: Timestamp
 - `source`: Email source (e.g., "Amazon")
@@ -538,6 +620,7 @@ After the scheduled worker runs (within 30 minutes), check your Lunch Money acco
 3. Verify it has been updated with notes or split into line items
 
 **Matching Logic:**
+
 - The service matches actions to transactions based on **payee name** and **amount**
 - Transactions must be in the past 180 days
 - Transactions must be uncleared (not marked as cleared/reviewed)
@@ -552,10 +635,10 @@ wrangler d1 execute email-to-lunchmoney --remote --command "DELETE FROM lunchmon
 ```
 
 Or to clear all actions:
+
 ```bash
 wrangler d1 execute email-to-lunchmoney --remote --command "DELETE FROM lunchmoney_actions"
 ```
-
 
 ## Troubleshooting
 
@@ -599,7 +682,6 @@ wrangler d1 execute email-to-lunchmoney --remote --command "DELETE FROM lunchmon
 - Check database binding is correct in `wrangler.jsonc`
 - View recent queries in Cloudflare dashboard (D1 → Select database → Metrics)
 
-
 ## Maintenance
 
 ### Viewing Pending Actions
@@ -637,20 +719,18 @@ wrangler secret put SECRET_NAME
 - **Sentry:** [sentry.io](https://sentry.io) (if configured)
 - **Telegram:** Receive notifications for old unprocessed actions
 
-
 ## Cost Breakdown
 
 The service is designed to be extremely cost-effective:
 
-| Service | Cost |
-|---------|------|
-| **Cloudflare Workers** | Free tier (100,000 requests/day, 10ms CPU time per request) |
-| **Cloudflare D1** | Free tier (5 GB storage, 5 million reads/day, 100k writes/day) |
-| **OpenAI API** | ~$0.01-0.05/month (depends on usage, mostly gpt-4o-mini) |
-| **Google Apps Script** | Free |
+| Service                | Cost                                                           |
+| ---------------------- | -------------------------------------------------------------- |
+| **Cloudflare Workers** | Free tier (100,000 requests/day, 10ms CPU time per request)    |
+| **Cloudflare D1**      | Free tier (5 GB storage, 5 million reads/day, 100k writes/day) |
+| **OpenAI API**         | ~$0.01-0.05/month (depends on usage, mostly gpt-4o-mini)       |
+| **Google Apps Script** | Free                                                           |
 
 **Expected monthly cost:** ~$0.01-0.05 (OpenAI API only)
-
 
 ## Security Considerations
 
