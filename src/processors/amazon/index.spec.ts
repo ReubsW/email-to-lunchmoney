@@ -2,10 +2,10 @@ import {env} from 'cloudflare:test';
 import PostalMime from 'postal-mime';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
+import fixture2Email from './fixtures/example-2.eml?raw';
 import fixtureEmail from './fixtures/example.eml?raw';
 import fixtureOrder from './fixtures/example.json';
 import fixtureEmailText from './fixtures/example.txt';
-import fixture2Email from './fixtures/example-2.eml?raw';
 import {amazonProcessor, computeItemTaxes, extractOrderBlock} from './index';
 import * as prompt from './prompt';
 
