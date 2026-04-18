@@ -20,7 +20,7 @@ export const AMAZON_ORDER_ITEM_PROPERTIES = {
   },
   priceEachCents: {
     description:
-      "The price per unit of the product in cents USD, as shown beneath the quantity. Example: '2495' is $24.95 USD.",
+      "The price per unit of the product in cents CAD, as shown beneath the quantity. Example: '2495' is $24.95 CAD.",
     type: 'number',
     minimum: 0,
   },
@@ -45,7 +45,7 @@ export const AMAZON_ORDER_PROPERTIES = {
   },
   totalCostCents: {
     description:
-      "The total cost of the order in cents USD, shown at the end of the email under 'Total'. Example: '2716' is $27.16 USD'.",
+      "The total cost of the order in cents CAD, shown at the end of the email under 'Total'. Example: '2716' is $27.16 CAD'.",
     type: 'number',
     minimum: 0,
   },
