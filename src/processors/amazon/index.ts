@@ -12,44 +12,23 @@ import {extractOrder} from './prompt';
 import {AmazonOrder, AmazonOrderItem} from './types';
 
 /**
- * Extracts all order blocks from an Amazon email.
- * Handles both single and multiple orders in one email.
+ * Extracts the order block from an Amazon shipped email.
  */
-export function extractOrderBlocks(emailText: string): string[] {
-  const blocks: string[] = [];
-
-  // Find all "Order #" positions
-  const orderPattern = /Order #\s*[\u200f]?\s*[\d\-]+/gi;
-  const matches = [...emailText.matchAll(orderPattern)];
-
-  if (matches.length === 0) {
-    return [];
+export function extractOrderBlock(emailText: string): string | null {
+  const orderStartMatch = emailText.match(/Order #\s*[\u200f]?\s*[\d\-]+/i);
+  if (!orderStartMatch || orderStartMatch.index === undefined) {
+    return null;
   }
 
-  // Find the footer position
+  const orderStartIndex = orderStartMatch.index;
   const footerMatch = emailText.match(/©\d{4} Amazon/i);
   const footerIndex = footerMatch?.index ?? emailText.length;
 
-  // Extract each order block (from one Order # to the next, or to footer)
-  for (let i = 0; i < matches.length; i++) {
-    const start = matches[i].index ?? 0;
-    const end = i + 1 < matches.length
-      ? (matches[i + 1].index ?? footerIndex)
-      : footerIndex;
-
-    const block = emailText.slice(start, end).trim();
-    if (block.length > 0) {
-      blocks.push(block);
-    }
-  }
-
-  return blocks;
+  return emailText.slice(orderStartIndex, footerIndex).trim();
 }
 
 /**
- * Computes the tax amount for each item in an order by proportionally
- * allocating the total tax across all items based on their pre-tax cost.
- * Works with cents (integers) to avoid floating-point precision issues.
+ * Computes the tax amount for each item proportionally.
  */
 export function computeItemTaxes(items: AmazonOrderItem[], totalCents: number): number[] {
   const subtotalCents = items.reduce(
@@ -115,37 +94,30 @@ function makeAction(order: AmazonOrder): LunchMoneyAction {
 
 async function process(email: Email, env: Env) {
   const emailText = email.text ?? '';
-  const orderBlocks = extractOrderBlocks(emailText);
+  const orderText = extractOrderBlock(emailText);
 
-  if (orderBlocks.length === 0) {
-    throw new Error('Failed to extract order blocks from amazon email');
+  if (orderText === null) {
+    throw new Error('Failed to extract order block from amazon shipped email');
   }
 
-  const actions: (LunchMoneyAction | null)[] = [];
+  const order = await extractOrder(orderText, env);
 
-  for (const orderText of orderBlocks) {
-    const order = await extractOrder(orderText, env);
+  console.log('Got order details from amazon shipped email', {order});
 
-    console.log('Got order details from amazon email', {order});
-
-    if (order.totalCostCents === 0) {
-      console.info('Ignoring Amazon order with zero cost', {orderId: order.orderId});
-      continue;
-    }
-
-    actions.push(makeAction(order));
+  if (order.totalCostCents === 0) {
+    console.info('Ignoring Amazon order with zero cost', {orderId: order.orderId});
+    return null;
   }
 
-  // Return first non-null action (Worker handles one action per email call)
-  return actions.find(a => a !== null) ?? null;
+  return makeAction(order);
 }
 
 function matchEmail(email: Email) {
   const {from, subject} = email;
   return !!(
-    from?.address?.endsWith('amazon.com') ||
-    from?.address?.endsWith('amazon.ca')
-  ) && !!subject?.startsWith('Ordered');
+    from?.address === 'shipment-tracking@amazon.ca' ||
+    from?.address === 'shipment-tracking@amazon.com'
+  ) && !!subject?.startsWith('Shipped:');
 }
 
 export const amazonProcessor: EmailProcessor = {
