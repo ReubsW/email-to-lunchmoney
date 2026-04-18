@@ -4,11 +4,11 @@ https://www.amazon.com/gp/css/order-history?ref_=fed_yo_default
 
 Your Account
 
-https://www.amazon.com/your-account?ref_=fed_ya_default
+https://www.amazon.ca/your-account?ref_=fed_ya_default
 
 Buy Again
 
-https://www.amazon.com/gp/buyagain?ref_=fed_bia_default
+https://www.amazon.ca/gp/buyagain?ref_=fed_bia_default
 
 
     Thanks for your order, Evan!
@@ -36,7 +36,7 @@ Order #
 114-0833187-7581859
 
 View or edit order
-https://www.amazon.com/gp/css/order-details?orderID=114-0833187-7581859&ref_=p_btn_fed_veo
+https://www.amazon.ca/gp/css/order-details?orderID=114-0833187-7581859&ref_=p_btn_fed_veo
 
 * Bathroom Faucet Brushed Nickel One-Handle, Modern one Hole Bathroom Sink Faucet Lavatory Faucet with Deck
   Quantity: 1
@@ -44,11 +44,11 @@ https://www.amazon.com/gp/css/order-details?orderID=114-0833187-7581859&ref_=p_b
 
 * Bathroom Sink Drain Without Overflow Vessel Sink Lavatory Vanity Pop Up Drain Stopper, Brushed Nickel
   Quantity: 1
-  16.99 USD
+  16.99 CAD
 
 
 Total
-44.95 USD
+44.95 CAD
 
 
 
