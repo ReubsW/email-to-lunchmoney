@@ -12,29 +12,44 @@ import {extractOrder} from './prompt';
 import {AmazonOrder, AmazonOrderItem} from './types';
 
 /**
- * Extracts the main order block from an Amazon plain text email.
- * It starts at the line containing "Order #" and ends before the footer.
+ * Extracts all order blocks from an Amazon email.
+ * Handles both single and multiple orders in one email.
  */
-export function extractOrderBlock(emailText: string): string | null {
-  const orderStartMatch = emailText.match(/Order #\s*\n(.+?)\n/i);
-  if (!orderStartMatch || orderStartMatch.index === undefined) {
-    return null;
+export function extractOrderBlocks(emailText: string): string[] {
+  const blocks: string[] = [];
+
+  // Find all "Order #" positions
+  const orderPattern = /Order #\s*[\u200f]?\s*[\d\-]+/gi;
+  const matches = [...emailText.matchAll(orderPattern)];
+
+  if (matches.length === 0) {
+    return [];
   }
 
-  const orderStartIndex = orderStartMatch.index;
-  const footerMatch = emailText.match(/©\d{4} Amazon\.ca/);
-  if (!footerMatch || footerMatch.index === undefined) {
-    return null;
+  // Find the footer position
+  const footerMatch = emailText.match(/©\d{4} Amazon/i);
+  const footerIndex = footerMatch?.index ?? emailText.length;
+
+  // Extract each order block (from one Order # to the next, or to footer)
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].index ?? 0;
+    const end = i + 1 < matches.length
+      ? (matches[i + 1].index ?? footerIndex)
+      : footerIndex;
+
+    const block = emailText.slice(start, end).trim();
+    if (block.length > 0) {
+      blocks.push(block);
+    }
   }
 
-  return emailText.slice(orderStartIndex, footerMatch.index).trim();
+  return blocks;
 }
 
 /**
  * Computes the tax amount for each item in an order by proportionally
  * allocating the total tax across all items based on their pre-tax cost.
  * Works with cents (integers) to avoid floating-point precision issues.
- * Returns tax amounts in cents.
  */
 export function computeItemTaxes(items: AmazonOrderItem[], totalCents: number): number[] {
   const subtotalCents = items.reduce(
@@ -52,13 +67,11 @@ export function computeItemTaxes(items: AmazonOrderItem[], totalCents: number): 
     return items.map(() => 0);
   }
 
-  // Calculate proportional tax for each item in cents
   const taxCents = items.map(item => {
     const itemCostCents = item.priceEachCents * item.quantity;
     return Math.round((itemCostCents / subtotalCents) * totalTaxCents);
   });
 
-  // Adjust for rounding errors by adding/subtracting from the last item
   const calculatedTotalTax = taxCents.reduce((sum, tax) => sum + tax, 0);
   const difference = totalTaxCents - calculatedTotalTax;
   taxCents[taxCents.length - 1] += difference;
@@ -102,28 +115,37 @@ function makeAction(order: AmazonOrder): LunchMoneyAction {
 
 async function process(email: Email, env: Env) {
   const emailText = email.text ?? '';
-  const orderText = extractOrderBlock(emailText);
+  const orderBlocks = extractOrderBlocks(emailText);
 
-  if (orderText === null) {
-    console.error({orderText});
-    throw new Error('Failed to extract order block from amazon email');
+  if (orderBlocks.length === 0) {
+    throw new Error('Failed to extract order blocks from amazon email');
   }
 
-  const order = await extractOrder(orderText, env);
+  const actions: (LunchMoneyAction | null)[] = [];
 
-  console.log('Got order details from amazon email', {order});
+  for (const orderText of orderBlocks) {
+    const order = await extractOrder(orderText, env);
 
-  if (order.totalCostCents === 0) {
-    console.info('Ignoring Amazon order with zero cost', {orderId: order.orderId});
-    return null;
+    console.log('Got order details from amazon email', {order});
+
+    if (order.totalCostCents === 0) {
+      console.info('Ignoring Amazon order with zero cost', {orderId: order.orderId});
+      continue;
+    }
+
+    actions.push(makeAction(order));
   }
 
-  return makeAction(order);
+  // Return first non-null action (Worker handles one action per email call)
+  return actions.find(a => a !== null) ?? null;
 }
 
 function matchEmail(email: Email) {
   const {from, subject} = email;
-  return !!from?.address?.endsWith('amazon.ca') && !!subject?.startsWith('Ordered');
+  return !!(
+    from?.address?.endsWith('amazon.com') ||
+    from?.address?.endsWith('amazon.ca')
+  ) && !!subject?.startsWith('Ordered');
 }
 
 export const amazonProcessor: EmailProcessor = {
