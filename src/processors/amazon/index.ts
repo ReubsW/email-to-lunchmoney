@@ -22,7 +22,7 @@ export function extractOrderBlock(emailText: string): string | null {
   }
 
   const orderStartIndex = orderStartMatch.index;
-  const footerMatch = emailText.match(/©\d{4} Amazon\.com/);
+  const footerMatch = emailText.match(/©\d{4} Amazon\.ca/);
   if (!footerMatch || footerMatch.index === undefined) {
     return null;
   }
