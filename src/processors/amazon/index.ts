@@ -4,6 +4,7 @@ import {
   EmailProcessor,
   LunchMoneyAction,
   LunchMoneyMatch,
+  LunchMoneySplit,
   LunchMoneyUpdate,
 } from 'src/types';
 
@@ -11,7 +12,7 @@ import {extractOrder} from './prompt';
 import {AmazonOrder, AmazonOrderItem} from './types';
 
 /**
- * Extracts the order block from an Amazon shipped or return email.
+ * Extracts the order block from an Amazon shipped or refund email.
  */
 export function extractOrderBlock(emailText: string): string | null {
   const orderStartMatch = emailText.match(/Order #\s*[\u200f]?\s*[\d\-]+/i);
@@ -70,7 +71,7 @@ function makeShippedAction(order: AmazonOrder): LunchMoneyAction {
   };
 
   if (order.orderItems.length > 1) {
-    return {
+    const splitAction: LunchMoneySplit = {
       match,
       type: 'split',
       split: order.orderItems.map((item, i) => ({
@@ -78,13 +79,16 @@ function makeShippedAction(order: AmazonOrder): LunchMoneyAction {
         amount: item.priceEachCents + itemsTax[i],
       })),
     };
+    return splitAction;
   }
 
-  return {
+  const updateAction: LunchMoneyUpdate = {
     match,
     type: 'update',
     note: makeItemNote(order, order.orderItems[0]),
   };
+
+  return updateAction;
 }
 
 function makeRefundAction(order: AmazonOrder): LunchMoneyAction {
@@ -93,17 +97,24 @@ function makeRefundAction(order: AmazonOrder): LunchMoneyAction {
     expectedTotal: -order.totalCostCents,
   };
 
+  const note = order.orderItems.length > 0
+    ? `Refund: ${makeItemNote(order, order.orderItems[0])}`
+    : `Refund (${order.orderId})`;
+
   const updateAction: LunchMoneyUpdate = {
     match,
     type: 'update',
-    note: `Refund: ${order.orderItems[0] ? makeItemNote(order, order.orderItems[0]) : order.orderId}`,
+    note,
   };
 
   return updateAction;
 }
 
-function isReturnEmail(email: Email): boolean {
-  return !!email.from?.address?.startsWith('return@amazon');
+function isRefundEmail(email: Email): boolean {
+  return !!(
+    email.from?.address === 'return@amazon.ca' ||
+    email.from?.address === 'return@amazon.com'
+  );
 }
 
 async function process(email: Email, env: Env) {
@@ -116,14 +127,17 @@ async function process(email: Email, env: Env) {
 
   const order = await extractOrder(orderText, env);
 
-  console.log('Got order details from amazon email', {order, isReturn: isReturnEmail(email)});
+  console.log('Got order details from amazon email', {
+    order,
+    isRefund: isRefundEmail(email),
+  });
 
   if (order.totalCostCents === 0) {
     console.info('Ignoring Amazon order with zero cost', {orderId: order.orderId});
     return null;
   }
 
-  return isReturnEmail(email)
+  return isRefundEmail(email)
     ? makeRefundAction(order)
     : makeShippedAction(order);
 }
@@ -136,12 +150,12 @@ function matchEmail(email: Email) {
       from?.address === 'shipment-tracking@amazon.com') &&
     !!subject?.startsWith('Shipped:');
 
-  const isReturn =
+  const isRefund =
     (from?.address === 'return@amazon.ca' ||
       from?.address === 'return@amazon.com') &&
-    !!subject?.startsWith('Your return of');
+    !!subject?.startsWith('Your refund for');
 
-  return isShipped || isReturn;
+  return isShipped || isRefund;
 }
 
 export const amazonProcessor: EmailProcessor = {
